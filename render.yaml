@@ -1,0 +1,46 @@
+# =============================
+# Render Blueprint Configuration
+# =============================
+
+# 1️⃣ MySQL Database
+databases:
+  - name: foodshare-mysql
+    databaseName: foodshare_db
+    user: foodshare_user
+    plan: free
+    # Render auto-generates a strong password and provides internal/external URLs.
+    # You'll find them in the Render dashboard after provisioning.
+
+# 2️⃣ Spring Boot Backend (Docker-based)
+services:
+  - type: web
+    name: foodshare-backend
+    runtime: docker
+    repo: https://github.com/33074/foodshare-backend.git
+    branch: main
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /actuator/health
+
+    envVars:
+      # ✅ MySQL Connection
+      - key: SPRING_DATASOURCE_URL
+        value: jdbc:mysql://foodshare-mysql:3306/foodshare_db?useSSL=false&allowPublicKeyRetrieval=true
+
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: foodshare-mysql
+          property: user
+
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: foodshare-mysql
+          property: password
+
+      # ✅ JWT Secret (set manually in dashboard)
+      - key: JWT_SECRET_KEY
+        sync: false
+
+      # ✅ Server Port (optional but recommended)
+      - key: SERVER_PORT
+        value: 8086
