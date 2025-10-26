@@ -1,0 +1,42 @@
+# Define the services for Render
+
+# 1. Define the MySQL Database
+databases:
+  - name: foodshare-mysql # Name for the database service (matches backend env var)
+    databaseName: foodshare_db # The actual database name to create
+    user: foodshare_user # The user to create
+    plan: free # Use Render's free tier for MySQL
+    # Note: Render will automatically generate a strong password and provide
+    # the internal and external connection strings in the dashboard.
+    # You will need to copy these into your GitHub secrets (DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD)
+    # and into the backend service's environment variables below.
+
+# 2. Define the Spring Boot Backend Web Service
+services:
+  - type: web # It's a web service accessible from the internet
+    name: foodshare-backend # Name for the backend service
+    runtime: docker # Specify building from a Dockerfile
+    repo: https://github.com/<your-username>/foodshare-backend.git # Optional: Point to your repo
+    branch: main # Optional: Specify the branch to deploy from
+    dockerfilePath: ./Dockerfile # Path to the Dockerfile within the repo
+    plan: free # Use Render's free tier for web services
+    healthCheckPath: /actuator/health # Endpoint for health checks
+    envVars: # Environment variables needed by the Spring Boot app
+      - key: SPRING_DATASOURCE_URL
+        # Use 'fromDatabase' to automatically get the internal connection URL
+        # Render injects DATABASE_URL, but Spring needs the JDBC format.
+        # We construct it using the DB service name defined above.
+        value: jdbc:mysql://foodshare-mysql:3306/foodshare_db?useSSL=false&allowPublicKeyRetrieval=true 
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase: # Get the username from the database service defined above
+          name: foodshare-mysql
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase: # Get the password from the database service defined above
+          name: foodshare-mysql
+          property: password
+      - key: JWT_SECRET_KEY
+        sync: false # Keep this secret, set its value in the Render dashboard or via secret files/env groups
+        # Alternatively, use a secret group: fromSecret: { name: backend-secrets, key: JWT_SECRET }
+      - key: SERVER_PORT # Ensure Spring Boot uses the port Render expects
+        value: 8086 # Match the EXPOSE in your Dockerfile and Render's default expectations if needed
