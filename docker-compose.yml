@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # Frontend Service (React + Nginx)
+  frontend:
+    build:
+      context: ./foodshare-frontend # Path to your frontend code
+      dockerfile: Dockerfile
+    container_name: foodshare-frontend-container
+    ports:
+      - "5173:80" # Map host port 5173 to container port 80 (Nginx default)
+    depends_on:
+      - backend # Optional: Waits for backend to start (though frontend doesn't strictly need it to load)
+    networks:
+      - foodshare-network
+
+  # Backend Service (Spring Boot)
+  backend:
+    build:
+      context: ./foodshare-backend # Path to your backend code
+      dockerfile: Dockerfile
+    container_name: foodshare-backend-container
+    ports:
+      - "8086:8086" # Map host port 8086 to container port 8086
+    environment:
+      # --- IMPORTANT: Configure Database Connection ---
+      # Use the service name 'database' as the hostname
+      SPRING_DATASOURCE_URL: jdbc:mysql://database:3306/foodshare_db?createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: foodshare_user
+      SPRING_DATASOURCE_PASSWORD: FoodShareUser_123! # Your MySQL user password
+      # --- JWT Secret ---
+      JWT_SECRET_KEY: ZThkMDdjN2U5YzYwYTJmN2E3ZDY1YjY3ZGRmNzU3ZjA5YzgwYjM4YjAyYjM3MjI4YzI4OTM5M2M5YjIzYWU4NQ== # Your JWT secret
+    depends_on:
+      - database # Ensures database starts before the backend
+    networks:
+      - foodshare-network
+
+  # Database Service (MySQL)
+  database:
+    image: mysql:8.0 # Use an official MySQL image
+    container_name: foodshare-mysql-container
+    ports:
+      # Map host port 3307 to container port 3306 to avoid conflict if you run MySQL locally
+      - "3307:3306" 
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_change_me # Set a root password (can be anything for local dev)
+      MYSQL_DATABASE: foodshare_db # Database name
+      MYSQL_USER: foodshare_user # Your application user
+      MYSQL_PASSWORD: FoodShareUser_123! # Your application user password
+    volumes:
+      - db-data:/var/lib/mysql # Persist database data using a named volume
+    networks:
+      - foodshare-network
+    healthcheck:
+        test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+        timeout: 20s
+        retries: 10
+
+
+# Define the network
+networks:
+  foodshare-network:
+    driver: bridge
+
+# Define the named volume for database persistence
+volumes:
+  db-data:
